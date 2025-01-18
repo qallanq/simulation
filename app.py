@@ -2,10 +2,8 @@ import streamlit as st
 import pandas as pd
 import gspread
 from google.oauth2.service_account import Credentials
+import plotly.graph_objects as go
 import plotly.express as px
-import pdfkit
-import base64
-import plotly.io as pio
 
 st.set_page_config(layout="wide")
 
@@ -70,11 +68,11 @@ sheet = gc.open_by_url(SHEET_URL).worksheet(SHEET_NAME)
 def load_chart_data():
     raw_data = sheet.get("K218:AI218")[0]  # Charger une seule ligne
     data = []
-    
+
     for val in raw_data:
         # Nettoyer et vérifier la valeur
         cleaned_val = val.replace("€", "").replace("\u00a0", "").replace("\u202f", "").strip()
-        
+
         if cleaned_val in ['-', '']:
             # Si la valeur est '-' ou vide, la remplacer par 0
             data.append(0.0)
@@ -85,14 +83,13 @@ def load_chart_data():
             except ValueError:
                 # Gestion d'erreur si une valeur inattendue est rencontrée
                 data.append(0.0)  # Vous pouvez aussi lever une alerte ou journaliser l'erreur
-    
+
     # Créer un DataFrame avec les années et les valeurs
     df = pd.DataFrame({
         'Année': [f'Année {i+1}' for i in range(len(data))],
         'Valeur': data
     })
     return df
-
 
 # Nouvelle fonction pour charger les données du deuxième graphique
 def load_cash_flow_data():
@@ -176,42 +173,6 @@ def update_cell(cell, value, is_percentage=False):
 # Interface utilisateur avec Streamlit
 st.title("Simulateur Qallanq")
 
-# Configuration de pdfkit avec le chemin vers wkhtmltopdf
-# Adaptez le chemin selon votre système
-config = pdfkit.configuration(wkhtmltopdf=r'C:\Program Files\wkhtmltopdf\bin\wkhtmltopdf.exe')  
-
-def create_download_button(pdf_content):
-    b64 = base64.b64encode(pdf_content).decode()
-    return f"""
-        <a href="data:application/pdf;base64,{b64}" download="simulation.pdf">
-            <button style="
-                background-color: #059669;
-                color: #ffffff;
-                border-radius: 8px;
-                border: none;
-                padding: 10px 24px;
-                font-size: 16px;
-                font-weight: bold;
-                cursor: pointer;
-                transition: background-color 0.3s ease;
-            ">
-                Télécharger le PDF
-            </button>
-        </a>
-    """
-
-# Options pour la génération du PDF
-pdf_options = {
-    'page-size': 'A4',
-    'margin-top': '20mm',  # Marge supérieure de 20 mm
-    'margin-right': '15mm',  # Marge droite de 15 mm
-    'margin-bottom': '20mm',  # Marge inférieure de 20 mm
-    'margin-left': '15mm',  # Marge gauche de 15 mm
-    'encoding': 'UTF-8',
-    'no-outline': None,
-    'enable-local-file-access': None
-}
-
 # Diviser l'interface en colonnes pour les inputs
 col1, col2, col3 = st.columns(3)
 
@@ -244,14 +205,12 @@ revalorisation_autres = col8.number_input("Revalorisation annuelle des autres ch
 assurance_pno = col9.number_input("Assurance PNO", min_value=0, step=50, value=None)
 revalorisation_assurance = col10.number_input("Revalorisation annuelle de l'assurance (%)", min_value=0.0, step=0.1, value=None)
 
-
 frais_gestion_locative = col8.number_input("Frais de gestion locative (%)", min_value=0.0, step=0.1, value=None)
 valeur_reelle_bien = col9.number_input("Valeur réelle du bien acquis", min_value=0, step=1000, value=None)
 revalorisation_bien = col10.number_input("Revalorisation annuelle du bien (%)", min_value=0.0, step=0.1, value=None)
 
 # Ajout d'un champ de liste déroulante
 col4, col5, col6 = st.columns(3)
-
 
 # Bouton pour générer
 if st.button("Générer", use_container_width = True):
@@ -285,6 +244,23 @@ if st.button("Générer", use_container_width = True):
 
     st.success("La simulation démarre !")
 
+st.markdown("""
+    <div style="
+        margin-bottom: 20px;
+        padding: 20px;
+        border: 2px solid #059669;
+        border-radius: 10px;
+        background-color: #f0fdf4;
+        text-align: center;
+        font-size: 16px;
+        color: #065f46;
+    ">
+        <p style="margin: 0;">
+            Vous pouvez enregistrer les tableaux et les graphiques ci-dessous en cliquant sur l'icône d'appareil photo <span style="font-size: 1.2em;">📷</span> située juste au-dessus des histogrammes.
+        </p>
+    </div>
+""", unsafe_allow_html=True)
+
 
 # Charger les données du tableau récapitulatif
 summary_data = load_summary_data()
@@ -292,7 +268,18 @@ summary_data = load_summary_data()
 # Afficher le tableau récapitulatif
 st.subheader("Résultats Financiers")
 summary_df = pd.DataFrame(list(summary_data.items()), columns=["Indicateur", "Valeur"])
-st.table(summary_df)
+
+# Créer un tableau Plotly pour le tableau récapitulatif
+fig_summary = go.Figure(data=[go.Table(
+    header=dict(values=list(summary_df.columns)),
+    cells=dict(values=[summary_df[col] for col in summary_df.columns]))
+])
+
+# Ajuster la hauteur du tableau et enlever la marge du bas
+fig_summary.update_layout(height=150, margin=dict(t=0, b=0, l=0, r=0))
+
+# Afficher le tableau
+st.plotly_chart(fig_summary, use_container_width=True)
 
 # Charger les données du tableau de décomposition
 decomposition_data = load_decomposition_data()
@@ -300,10 +287,18 @@ decomposition_data = load_decomposition_data()
 # Afficher le tableau de décomposition
 st.subheader("Décomposition de l'enrichissement")
 decomposition_df = pd.DataFrame(list(decomposition_data.items()), columns=["Élément", "Valeur"])
-st.table(decomposition_df)
 
-# Ajouter un espace invisible entre les éléments
-st.markdown("<div style='height: 100px;'></div>", unsafe_allow_html=True)
+# Créer un tableau Plotly pour le tableau de décomposition
+fig_decomposition = go.Figure(data=[go.Table(
+    header=dict(values=list(decomposition_df.columns)),
+    cells=dict(values=[decomposition_df[col] for col in decomposition_df.columns]))
+])
+
+# Ajuster la hauteur du tableau pour voir toutes les données et enlever la marge du bas
+fig_decomposition.update_layout(height=400, margin=dict(t=0, b=0, l=0, r=0))
+
+# Afficher le tableau
+st.plotly_chart(fig_decomposition, use_container_width=True)
 
 # Charger les données du graphique au premier affichage ou utiliser les données mises à jour
 if "chart_data" not in st.session_state:
@@ -380,68 +375,6 @@ fig2.update_layout(
         x=1                # Position X
     )
 )
-    
 
 # Afficher le deuxième graphique
 st.plotly_chart(fig2, use_container_width=True)
-
-st.markdown("""
-    <div style="
-        margin-bottom: 20px;
-        padding: 20px;
-        border: 2px solid #059669;
-        border-radius: 10px;
-        background-color: #f0fdf4;
-        text-align: center;
-        font-size: 16px;
-        color: #065f46;
-    ">
-        <p style="margin: 0;">
-            Vous pouvez enregistrer les tableaux en PDF en cliquant sur le bouton <strong>"Exporter les tableaux en PDF"</strong> ci-dessous.
-        </p>
-        <p style="margin: 10px 0 0;">
-            Pour télécharger les graphiques, cliquez sur l'icône d'appareil photo <span style="font-size: 1.2em;">📷</span> située juste au-dessus des histogrammes.
-        </p>
-    </div>
-""", unsafe_allow_html=True)
-
-# Add a button to export the app as a PDF
-if st.button("Exporter les tableaux en PDF", use_container_width=True):
-    try:
-        st.success("Début de la génération du PDF...")
-        html_content = f"""
-        <html>
-            <head>
-                <style>
-                    body {{ font-family: Arial, sans-serif; }}
-                    .title {{ text-align: center; }}
-                    table {{ width: 100%; border-collapse: collapse; margin: 20px 0; }}
-                    th, td {{ border: 1px solid #ddd; padding: 8px; text-align: left; }}
-                    th {{ background-color: #f2f2f2; }}
-                    img {{ max-width: 100%; height: auto; display: block; margin: 20px auto; }}
-                </style>
-            </head>
-            <body>
-                <h1 class="title">Simulateur Qallanq</h1>
-                <h2>Résultats Financiers</h2>
-                {summary_df.to_html(index=False, escape=False)}
-                <h2>Décomposition de l'enrichissement</h2>
-                {decomposition_df.to_html(index=False, escape=False)}
-                <div style="page-break-before: always;"></div>
-            </body>
-        </html>
-        """
-        pdf = pdfkit.from_string(html_content, False, options=pdf_options, configuration=config)
-        st.success("PDF généré avec succès ! Cliquez sur le bouton pour télécharger.")
-        
-        
-        b64 = base64.b64encode(pdf).decode()
-        st.download_button(
-            label="Télécharger le PDF",
-            data=pdf,
-            file_name="simulation.pdf",
-            mime="application/pdf",
-            use_container_width=True)
-        
-    except Exception as e:
-        st.error(f"Erreur lors de la génération du PDF : {str(e)}")
