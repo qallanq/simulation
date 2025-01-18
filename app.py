@@ -244,6 +244,9 @@ if st.button("Générer", use_container_width = True):
 
     st.success("La simulation démarre !")
 
+
+st.html("<style>[data-testid='stHeaderActionElements'] {display: none;}</style>")
+
 st.markdown("""
     <div style="
         margin-bottom: 20px;
