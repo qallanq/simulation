@@ -3,9 +3,19 @@ import pandas as pd
 import gspread
 from google.oauth2.service_account import Credentials
 import plotly.express as px
-import streamlit.components.v1 as components
+import pdfkit
+import base64
+import plotly.io as pio
 
-st. set_page_config(layout="wide")
+st.set_page_config(layout="wide")
+
+st.markdown("""
+        <style>
+        .css-15zrgzn {display: none}
+        .css-eczf16 {display: none}
+        .css-jn99sy {display: none}
+        </style>
+        """, unsafe_allow_html=True)
 
 # Ajouter du CSS personnalisé pour le bouton
 st.markdown(
@@ -29,52 +39,6 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
-show_print_button = """
-    <script>
-        function print_page(obj) {
-            const originalDisplay = obj.style.display;
-            obj.style.display = "none"; // Hide the button temporarily
-            setTimeout(() => {
-                obj.style.display = originalDisplay; // Restore the button after print dialog
-            }, 1000); // Wait 1 second to ensure the print dialog is triggered
-            parent.window.print();
-        }
-    </script>
-    <style>
-        div.stButton > button:first-child {
-            background-color: #059669; /* Vert émeraude 600 */
-            color: #ffffff; /* Texte blanc */
-            border-radius: 8px; /* Coins arrondis */
-            border: none; /* Pas de bordure */
-            padding: 10px 24px; /* Espacement interne */
-            font-size: 16px; /* Taille du texte */
-            font-weight: bold; /* Texte en gras */
-            transition: background-color 0.3s ease; /* Animation de transition */
-        }
-        div.stButton > button:hover {
-            background-color: #047857; /* Vert émeraude 700 au survol */
-            color: #ffffff;
-        }
-        button.print-button {
-            background-color: #059669; /* Vert émeraude 600 */
-            color: #ffffff; /* Texte blanc */
-            border-radius: 8px; /* Coins arrondis */
-            border: none; /* Pas de bordure */
-            padding: 10px 24px; /* Espacement interne */
-            font-size: 16px; /* Taille du texte */
-            font-weight: bold; /* Texte en gras */
-            cursor: pointer;
-            transition: background-color 0.3s ease; /* Animation de transition */
-        }
-        button.print-button:hover {
-            background-color: #047857; /* Vert émeraude 700 au survol */
-            color: #ffffff;
-        }
-    </style>
-    <button class="print-button" onclick="print_page(this)">
-        Exporter en PDF (A4, Mise à l'échelle : 60%)
-    </button>
-    """
 
 # Configuration des credentials Google
 credentials = {
@@ -211,8 +175,42 @@ def update_cell(cell, value, is_percentage=False):
 
 # Interface utilisateur avec Streamlit
 st.title("Simulateur Qallanq")
-# Add the button to the Streamlit app
-components.html(show_print_button, height=60)
+
+# Configuration de pdfkit avec le chemin vers wkhtmltopdf
+# Adaptez le chemin selon votre système
+config = pdfkit.configuration(wkhtmltopdf=r'C:\Program Files\wkhtmltopdf\bin\wkhtmltopdf.exe')  
+
+def create_download_button(pdf_content):
+    b64 = base64.b64encode(pdf_content).decode()
+    return f"""
+        <a href="data:application/pdf;base64,{b64}" download="simulation.pdf">
+            <button style="
+                background-color: #059669;
+                color: #ffffff;
+                border-radius: 8px;
+                border: none;
+                padding: 10px 24px;
+                font-size: 16px;
+                font-weight: bold;
+                cursor: pointer;
+                transition: background-color 0.3s ease;
+            ">
+                Télécharger le PDF
+            </button>
+        </a>
+    """
+
+# Options pour la génération du PDF
+pdf_options = {
+    'page-size': 'A4',
+    'margin-top': '20mm',  # Marge supérieure de 20 mm
+    'margin-right': '15mm',  # Marge droite de 15 mm
+    'margin-bottom': '20mm',  # Marge inférieure de 20 mm
+    'margin-left': '15mm',  # Marge gauche de 15 mm
+    'encoding': 'UTF-8',
+    'no-outline': None,
+    'enable-local-file-access': None
+}
 
 # Diviser l'interface en colonnes pour les inputs
 col1, col2, col3 = st.columns(3)
@@ -386,3 +384,64 @@ fig2.update_layout(
 
 # Afficher le deuxième graphique
 st.plotly_chart(fig2, use_container_width=True)
+
+st.markdown("""
+    <div style="
+        margin-bottom: 20px;
+        padding: 20px;
+        border: 2px solid #059669;
+        border-radius: 10px;
+        background-color: #f0fdf4;
+        text-align: center;
+        font-size: 16px;
+        color: #065f46;
+    ">
+        <p style="margin: 0;">
+            Vous pouvez enregistrer les tableaux en PDF en cliquant sur le bouton <strong>"Exporter les tableaux en PDF"</strong> ci-dessous.
+        </p>
+        <p style="margin: 10px 0 0;">
+            Pour télécharger les graphiques, cliquez sur l'icône d'appareil photo <span style="font-size: 1.2em;">📷</span> située juste au-dessus des histogrammes.
+        </p>
+    </div>
+""", unsafe_allow_html=True)
+
+# Add a button to export the app as a PDF
+if st.button("Exporter les tableaux en PDF", use_container_width=True):
+    try:
+        st.success("Début de la génération du PDF...")
+        html_content = f"""
+        <html>
+            <head>
+                <style>
+                    body {{ font-family: Arial, sans-serif; }}
+                    .title {{ text-align: center; }}
+                    table {{ width: 100%; border-collapse: collapse; margin: 20px 0; }}
+                    th, td {{ border: 1px solid #ddd; padding: 8px; text-align: left; }}
+                    th {{ background-color: #f2f2f2; }}
+                    img {{ max-width: 100%; height: auto; display: block; margin: 20px auto; }}
+                </style>
+            </head>
+            <body>
+                <h1 class="title">Simulateur Qallanq</h1>
+                <h2>Résultats Financiers</h2>
+                {summary_df.to_html(index=False, escape=False)}
+                <h2>Décomposition de l'enrichissement</h2>
+                {decomposition_df.to_html(index=False, escape=False)}
+                <div style="page-break-before: always;"></div>
+            </body>
+        </html>
+        """
+        pdf = pdfkit.from_string(html_content, False, options=pdf_options, configuration=config)
+        st.success("PDF généré avec succès ! Cliquez sur le bouton pour télécharger.")
+        
+        
+        b64 = base64.b64encode(pdf).decode()
+        st.download_button(
+            label="Télécharger le PDF",
+            data=pdf,
+            file_name="simulation.pdf",
+            mime="application/pdf",
+            use_container_width=True)
+        
+    except Exception as e:
+        st.error(f"Erreur lors de la génération du PDF : {str(e)}")
