@@ -3,6 +3,7 @@ import pandas as pd
 import gspread
 from google.oauth2.service_account import Credentials
 import plotly.express as px
+import streamlit.components.v1 as components
 
 st. set_page_config(layout="wide")
 
@@ -28,6 +29,52 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+show_print_button = """
+    <script>
+        function print_page(obj) {
+            const originalDisplay = obj.style.display;
+            obj.style.display = "none"; // Hide the button temporarily
+            setTimeout(() => {
+                obj.style.display = originalDisplay; // Restore the button after print dialog
+            }, 1000); // Wait 1 second to ensure the print dialog is triggered
+            parent.window.print();
+        }
+    </script>
+    <style>
+        div.stButton > button:first-child {
+            background-color: #059669; /* Vert émeraude 600 */
+            color: #ffffff; /* Texte blanc */
+            border-radius: 8px; /* Coins arrondis */
+            border: none; /* Pas de bordure */
+            padding: 10px 24px; /* Espacement interne */
+            font-size: 16px; /* Taille du texte */
+            font-weight: bold; /* Texte en gras */
+            transition: background-color 0.3s ease; /* Animation de transition */
+        }
+        div.stButton > button:hover {
+            background-color: #047857; /* Vert émeraude 700 au survol */
+            color: #ffffff;
+        }
+        button.print-button {
+            background-color: #059669; /* Vert émeraude 600 */
+            color: #ffffff; /* Texte blanc */
+            border-radius: 8px; /* Coins arrondis */
+            border: none; /* Pas de bordure */
+            padding: 10px 24px; /* Espacement interne */
+            font-size: 16px; /* Taille du texte */
+            font-weight: bold; /* Texte en gras */
+            cursor: pointer;
+            transition: background-color 0.3s ease; /* Animation de transition */
+        }
+        button.print-button:hover {
+            background-color: #047857; /* Vert émeraude 700 au survol */
+            color: #ffffff;
+        }
+    </style>
+    <button class="print-button" onclick="print_page(this)">
+        Exporter en PDF (A4, Mise à l'échelle : 60%)
+    </button>
+    """
 
 # Configuration des credentials Google
 credentials = {
@@ -164,6 +211,8 @@ def update_cell(cell, value, is_percentage=False):
 
 # Interface utilisateur avec Streamlit
 st.title("Simulateur Qallanq")
+# Add the button to the Streamlit app
+components.html(show_print_button, height=60)
 
 # Diviser l'interface en colonnes pour les inputs
 col1, col2, col3 = st.columns(3)
@@ -254,6 +303,9 @@ decomposition_data = load_decomposition_data()
 st.subheader("Décomposition de l'enrichissement")
 decomposition_df = pd.DataFrame(list(decomposition_data.items()), columns=["Élément", "Valeur"])
 st.table(decomposition_df)
+
+# Ajouter un espace invisible entre les éléments
+st.markdown("<div style='height: 100px;'></div>", unsafe_allow_html=True)
 
 # Charger les données du graphique au premier affichage ou utiliser les données mises à jour
 if "chart_data" not in st.session_state:
